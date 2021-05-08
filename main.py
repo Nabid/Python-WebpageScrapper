@@ -162,14 +162,14 @@ if __name__ == "__main__":
     Logger.debug(f"total urls: {len(urls)}")
 
     parser = FetchAndParse(urls)
-    emails = parser.parse()
+    parsedValues = parser.parse()
 
-    Logger.debug(f"total emails scrapped: {len(emails)-emails.count('')}")
+    Logger.debug(f"total values scrapped: {len(parsedValues)-parsedValues.count('')}")
 
     if ReadConfig.contains_header:
-        emails.insert(0, 'Email')
+        parsedValues.insert(0, 'Parsed values')
     
     Logger.debug("dumping output csv ...")
     writer = WriteCsv(file_name=ReadConfig.output_csv, mode="w+")
-    writer.writeColumn(read_file=ReadConfig.yellow_pages_csv, col_data=emails)
+    writer.writeColumn(read_file=ReadConfig.yellow_pages_csv, col_data=parsedValues)
     Logger.debug("csv dump successful.")
