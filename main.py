@@ -39,7 +39,7 @@ class ReadConfig:
         configParser.read(r'./config.cfg')
         ReadConfig.yellow_pages_csv = configParser.get('settings', 'path')
         ReadConfig.output_csv = configParser.get('settings', 'out_path')
-        ReadConfig.col_scrap = int(configParser.get('settings', 'column'))
+        ReadConfig.col_scrap = int(configParser.get('settings', 'column')) - 1
         ReadConfig.contains_header = bool(configParser.get('settings', 'header'))
         ReadConfig.delay_request = bool(configParser.get('settings', 'delay_request'))
         ReadConfig.min_delay = int(configParser.get('settings', 'min_delay'))
@@ -93,6 +93,14 @@ class FetchAndParse:
                 email = email.split(':')[1]
         return email
 
+    def schoolPerformanceServiceGovUk(self, attr):
+        website = ''
+        try:
+            website = attr[0].findAll('dd')[12].findAll('a')[0].attrs['href']
+        except:
+            website = ''
+        return website
+
     def parse(self):
         foundValues = []
         for i, url in enumerate(self.urls):
@@ -130,7 +138,7 @@ class FetchAndParse:
             foundAttr = page.findAll(ReadConfig.search_tag, {ReadConfig.search_attr:ReadConfig.search_attr_value})
             # if attribute exists
             if len(foundAttr):
-                value = self.yellowPagesEmail(foundAttr)
+                value = self.schoolPerformanceServiceGovUk(foundAttr)
                 Logger.debug(f"search value found: {value}")
                 foundValues.append(value)
             else:
