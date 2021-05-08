@@ -30,18 +30,24 @@ class ReadConfig:
     min_delay = 500
     max_delay = 2000
     request_timeout = 10000
+    search_tag = ''
+    search_attr = ''
+    search_attr_value = ''
 
     def __init__(self):
         configParser = cs.RawConfigParser()
         configParser.read(r'./config.cfg')
-        ReadConfig.yellow_pages_csv = configParser.get('yellow-pages-csv', 'path')
-        ReadConfig.output_csv = configParser.get('yellow-pages-csv', 'out_path')
-        ReadConfig.col_scrap = int(configParser.get('yellow-pages-csv', 'column'))
-        ReadConfig.contains_header = bool(configParser.get('yellow-pages-csv', 'header'))
-        ReadConfig.delay_request = bool(configParser.get('yellow-pages-csv', 'delay_request'))
-        ReadConfig.min_delay = int(configParser.get('yellow-pages-csv', 'min_delay'))
-        ReadConfig.max_delay = int(configParser.get('yellow-pages-csv', 'max_delay'))
-        ReadConfig.request_timeout = int(configParser.get('yellow-pages-csv', 'request_timeout'))
+        ReadConfig.yellow_pages_csv = configParser.get('settings', 'path')
+        ReadConfig.output_csv = configParser.get('settings', 'out_path')
+        ReadConfig.col_scrap = int(configParser.get('settings', 'column'))
+        ReadConfig.contains_header = bool(configParser.get('settings', 'header'))
+        ReadConfig.delay_request = bool(configParser.get('settings', 'delay_request'))
+        ReadConfig.min_delay = int(configParser.get('settings', 'min_delay'))
+        ReadConfig.max_delay = int(configParser.get('settings', 'max_delay'))
+        ReadConfig.request_timeout = int(configParser.get('settings', 'request_timeout'))
+        ReadConfig.search_tag = configParser.get('settings', 'search_tag')
+        ReadConfig.search_attr = configParser.get('settings', 'search_attr')
+        ReadConfig.search_attr_value = configParser.get('settings', 'search_attr_value')
 
 class ReadCsv:
     def __init__(self, file_name):
@@ -72,12 +78,23 @@ class ReadCsv:
                 list_urls.pop(0)
         return list_urls
         
-class ParseEmails:
+class FetchAndParse:
     def __init__(self, urls):
         self.urls = urls
 
+    def yellowPagesEmail(self, attr):
+        email = attr[0].attrs['href']
+        # if email does not exist
+        if email is None:
+            email = ''
+        # if email exist
+        else:
+            if 'mailto' in email:
+                email = email.split(':')[1]
+        return email
+
     def parse(self):
-        emails = []
+        foundValues = []
         for i, url in enumerate(self.urls):
             if ReadConfig.delay_request:
                 delay = randint(ReadConfig.min_delay, ReadConfig.max_delay)/float(1000)
@@ -105,28 +122,21 @@ class ParseEmails:
                 Logger.debug(f'received response [{i+1}/{len(self.urls)}]: {url}')
 
             if isError:
-                emails.append("")
+                foundValues.append("")
                 continue
 
             Logger.debug('parsing html response ...')
             page = soup(html, "html.parser")
-            attrEmail = page.findAll('a', {'class':'email-business'})
-            # if <a class='email-business'> attribute exists
-            if len(attrEmail):
-                email = attrEmail[0].attrs['href']
-                # if email does not exist
-                if email is None:
-                    email = ''
-                # if email exist
-                else:
-                    if 'mailto' in email:
-                        email = email.split(':')[1]
-                Logger.debug(f"email found: {email}")
-                emails.append(email)
+            foundAttr = page.findAll(ReadConfig.search_tag, {ReadConfig.search_attr:ReadConfig.search_attr_value})
+            # if attribute exists
+            if len(foundAttr):
+                value = self.yellowPagesEmail(foundAttr)
+                Logger.debug(f"search value found: {value}")
+                foundValues.append(value)
             else:
-                Logger.debug('email not found')
-                emails.append("")
-        return emails
+                Logger.debug('search value not found')
+                foundValues.append("")
+        return foundValues
 
 class WriteCsv:
     def __init__(self, file_name, mode):
@@ -151,7 +161,7 @@ if __name__ == "__main__":
 
     Logger.debug(f"total urls: {len(urls)}")
 
-    parser = ParseEmails(urls)
+    parser = FetchAndParse(urls)
     emails = parser.parse()
 
     Logger.debug(f"total emails scrapped: {len(emails)-emails.count('')}")
