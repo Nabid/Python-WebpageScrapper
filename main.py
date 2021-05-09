@@ -101,33 +101,41 @@ class FetchAndParse:
             website = ''
         return website
 
+    def fetch(self, url, currentIndex, totalUrls):
+        if ReadConfig.delay_request:
+            delay = randint(ReadConfig.min_delay, ReadConfig.max_delay)/float(1000)
+            Logger.debug(f'delay: {delay} second(s)')
+            sleep(delay)
+        Logger.debug(f'sending request [{currentIndex}/{totalUrls}]: {url}')
+        isError, html = False, None
+        try:
+            client = uReq(url, timeout=ReadConfig.request_timeout/1000)
+        except HTTPError as error:
+            Logger.error('data not retrieved because %s\nURL: <%s>', error, url)
+            isError = True
+        except URLError as error:
+            if isinstance(error.reason, socket.timeout):
+                logging.error('socket timed out - URL <%s>', url)
+            else:
+                logging.error('some other error happened')
+            isError = True
+        except socket.timeout:
+            logging.error('socket timed out - URL <%s>', url)
+            isError = True
+        except ValueError:
+            logging.error('invalid URL <%s>', url)
+            isError = True
+        else:
+            html = client.read()
+            client.close()
+            Logger.debug(f'received response [{currentIndex}/{totalUrls}]: {url}')
+
+        return isError, html
+
     def parse(self):
         foundValues = []
         for i, url in enumerate(self.urls):
-            if ReadConfig.delay_request:
-                delay = randint(ReadConfig.min_delay, ReadConfig.max_delay)/float(1000)
-                Logger.debug(f'delay: {delay} second(s)')
-                sleep(delay)
-            Logger.debug(f'sending request [{i+1}/{len(self.urls)}]: {url}')
-            isError = False
-            try:
-                client = uReq(url, timeout=ReadConfig.request_timeout/1000)
-                html = client.read()
-            except HTTPError as error:
-                Logger.error('data not retrieved because %s\nURL: %s', error, url)
-                isError = True
-            except URLError as error:
-                if isinstance(error.reason, socket.timeout):
-                    logging.error('socket timed out - URL %s', url)
-                else:
-                    logging.error('some other error happened')
-                isError = True
-            except socket.timeout:
-                logging.error('socket timed out - URL %s', url)
-                isError = True
-            else:
-                client.close()
-                Logger.debug(f'received response [{i+1}/{len(self.urls)}]: {url}')
+            isError, html = self.fetch(url, i+1, len(self.urls))
 
             if isError:
                 foundValues.append("")
