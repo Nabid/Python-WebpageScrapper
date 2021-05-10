@@ -33,6 +33,7 @@ class ReadConfig:
     search_tag = ''
     search_attr = ''
     search_attr_value = ''
+    out_col_name = 'Parsed values'
 
     def __init__(self):
         configParser = cs.RawConfigParser()
@@ -48,6 +49,7 @@ class ReadConfig:
         ReadConfig.search_tag = configParser.get('settings', 'search_tag')
         ReadConfig.search_attr = configParser.get('settings', 'search_attr')
         ReadConfig.search_attr_value = configParser.get('settings', 'search_attr_value')
+        ReadConfig.out_col_name = configParser.get('settings', 'out_col_name')
 
 class ReadCsv:
     def __init__(self, file_name):
@@ -63,20 +65,23 @@ class ReadCsv:
     def read(self):
         if not self.isValidFile(self.file_name, "csv"):
             return None
+        fileData = []
         with open(self.file_name, 'r') as file:
             reader = csv.reader(file)
-        return reader
+            for row in reader:
+                fileData.append(row)
+        return fileData
 
     def getColumn(self, column):
         if not self.isValidFile(self.file_name, "csv"):
             return None
-        list_urls =[]
+        col_data =[]
         with open(self.file_name, 'r') as file:
             reader = csv.reader(file)
-            list_urls = [row[column] for row in reader]
+            col_data = [row[column] for row in reader]
             if ReadConfig.contains_header:
-                list_urls.pop(0)
-        return list_urls
+                col_data.pop(0)
+        return col_data
         
 class FetchAndParse:
     def __init__(self, urls):
@@ -94,12 +99,18 @@ class FetchAndParse:
         return email
 
     def schoolPerformanceServiceGovUk(self, attr):
-        website = ''
-        try:
-            website = attr[0].findAll('dd')[12].findAll('a')[0].attrs['href']
-        except:
-            website = ''
-        return website
+        address,website = '', ''
+        dt = attr[0].findAll('dt')
+        dd = attr[0].findAll('dd')
+
+        for i, item in enumerate(dt):
+            if 'Address' in item.text:
+                address = dd[i].string
+            elif 'Website' in item.text:
+                website = dd[i].next.attrs['href']
+
+        # return f'{website};{address}'
+        return [website, address]
 
     def fetch(self, url, currentIndex, totalUrls):
         if ReadConfig.delay_request:
@@ -163,9 +174,14 @@ class WriteCsv:
         with open(read_file, "r") as reader_file, \
         open(self.file_name, self.mode) as writer_file:
             reader = csv.reader(reader_file)
-            writer = csv.writer(writer_file)
+            writer = csv.writer(writer_file, delimiter=";")
             for i, row in enumerate(reader):
-                row.append(col_data[i])
+
+                if type(col_data[i]) == str:
+                    row.append(col_data[i])
+                elif type(col_data[i]) == list:
+                    for data in col_data[i] : row.append(data)
+
                 writer.writerow(row)
 
 if __name__ == "__main__":
@@ -183,7 +199,10 @@ if __name__ == "__main__":
     Logger.debug(f"total values scrapped: {len(parsedValues)-parsedValues.count('')}")
 
     if ReadConfig.contains_header:
-        parsedValues.insert(0, 'Parsed values')
+        if ',' in ReadConfig.out_col_name:
+            parsedValues.insert(0, ReadConfig.out_col_name.split(','))
+        else:
+            parsedValues.insert(0, ReadConfig.out_col_name)
     
     Logger.debug("dumping output csv ...")
     writer = WriteCsv(file_name=ReadConfig.output_csv, mode="w+")
