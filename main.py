@@ -121,6 +121,8 @@ class FetchAndParse:
         isError, html = False, None
         try:
             client = uReq(url, timeout=ReadConfig.request_timeout/1000)
+            html = client.read()
+            client.close()
         except HTTPError as error:
             Logger.error('data not retrieved because %s\nURL: <%s>', error, url)
             isError = True
@@ -137,8 +139,6 @@ class FetchAndParse:
             logging.error('invalid URL <%s>', url)
             isError = True
         else:
-            html = client.read()
-            client.close()
             Logger.debug(f'received response [{currentIndex}/{totalUrls}]: {url}')
 
         return isError, html
